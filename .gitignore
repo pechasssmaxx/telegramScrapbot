@@ -1,6 +1,7 @@
 node_modules/
 dist/
 .env
+.planning/
 data/*
 !data/.gitkeep
 bot.out.log
