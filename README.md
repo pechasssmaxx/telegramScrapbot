@@ -161,19 +161,7 @@ npm run dev
 
 - `BOT_TOKEN` — токен Telegram-бота от BotFather
 - `ANTHROPIC_API_KEY` — ключ Anthropic
-
-Опциональные:
-
-- `TELEGRAM_API_ID` — Telegram API ID для fallback reader
-- `TELEGRAM_API_HASH` — Telegram API hash для fallback reader
-- `TELEGRAM_SESSION_STRING` — user session для fallback reader
-- `ANTHROPIC_MODEL` — по умолчанию `claude-haiku-4-5-20251001`
-- `BOT_OWNER_CHAT_ID` — ограничение бота одним чатом
-- `DATA_DIR` — директория хранения данных
-- `LOG_LEVEL` — уровень логирования
-
 ---
-
 ## Структура проекта
 
 ```text
