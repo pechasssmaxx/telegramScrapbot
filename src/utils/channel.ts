@@ -15,7 +15,8 @@ export function normalizeChannelInput(raw: string): string {
 
   if (value.startsWith(TELEGRAM_LINK_PREFIX)) {
     const url = new URL(value);
-    const username = url.pathname.replaceAll("/", "");
+    const pathname = url.pathname.replace(/^\/+|\/+$/g, "");
+    const username = pathname.startsWith("s/") ? pathname.slice(2) : pathname;
     validateUsername(username);
     return username.toLowerCase();
   }
