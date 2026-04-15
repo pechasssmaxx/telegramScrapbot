@@ -3,3 +3,5 @@ dist/
 .env
 data/*
 !data/.gitkeep
+bot.out.log
+bot.err.log

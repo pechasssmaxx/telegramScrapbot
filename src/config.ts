@@ -5,15 +5,14 @@ loadEnv();
 
 const configSchema = z.object({
   BOT_TOKEN: z.string().min(1, "BOT_TOKEN is required"),
-  TELEGRAM_API_ID: z
-    .string()
-    .min(1, "TELEGRAM_API_ID is required")
-    .transform((value) => Number(value))
-    .pipe(z.number().int().positive()),
-  TELEGRAM_API_HASH: z.string().min(1, "TELEGRAM_API_HASH is required"),
+  TELEGRAM_API_ID: z.preprocess(
+    (value) => (value === undefined || value === "" ? undefined : Number(value)),
+    z.number().int().positive().optional()
+  ),
+  TELEGRAM_API_HASH: z.string().optional(),
   TELEGRAM_SESSION_STRING: z.string().default(""),
   ANTHROPIC_API_KEY: z.string().min(1, "ANTHROPIC_API_KEY is required"),
-  ANTHROPIC_MODEL: z.string().default("claude-3-5-haiku-latest"),
+  ANTHROPIC_MODEL: z.string().default("claude-haiku-4-5-20251001"),
   BOT_OWNER_CHAT_ID: z
     .string()
     .optional()

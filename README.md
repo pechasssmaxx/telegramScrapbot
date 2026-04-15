@@ -1,130 +1,244 @@
-# Telegram Digest Bot MVP
+# Telegram Digest Bot
 
-Technical MVP of a Telegram bot that tracks public Telegram channels and generates a daily-style digest on demand.
+![Node.js](https://img.shields.io/badge/Node.js-22-339933?logo=node.js&logoColor=white)
+![TypeScript](https://img.shields.io/badge/TypeScript-5-3178C6?logo=typescript&logoColor=white)
+![Telegraf](https://img.shields.io/badge/Telegraf-Telegram%20Bot-26A5E4?logo=telegram&logoColor=white)
+![Claude](https://img.shields.io/badge/Claude-Haiku%204.5-D97706)
+![Docker](https://img.shields.io/badge/Docker-Compose-2496ED?logo=docker&logoColor=white)
 
-## What it does
-
-- `/start` replies with a greeting and command list
-- `/add <@channelname | https://t.me/channelname>` adds a public channel to monitoring
-- `/list` shows tracked channels
-- `/remove <@channelname | https://t.me/channelname>` removes a tracked channel
-- `/digest` fetches posts from the last 24 hours and asks Claude Haiku to produce the top 5 themes
-
-## Stack
-
-- `Node.js 22`
-- `TypeScript`
-- `Telegraf` for Telegram bot commands
-- `GramJS` (`telegram` package) for reading public channel history
-- `Anthropic SDK` with `claude-3-5-haiku-latest` for digest generation
-- Local JSON storage for single-user MVP persistence
-- `Docker Compose` as the main submission/runtime path
-
-## Why Claude Haiku
-
-I chose Claude Haiku because this bot needs structured summarization with relatively low latency and low cost per digest. For an MVP that may process many posts every day, Haiku is a better fit than a heavier model: fast enough for an interactive `/digest`, cheaper for repeated use, and still strong at extracting themes and returning compact structured output.
-
-## Project structure
+> MVP Telegram-бота, который мониторит публичные Telegram-каналы, собирает посты за последние 24 часа и присылает пользователю выжимку из 5 самых важных тем.
 
 ```text
-src/
-  bot.ts                       Telegram command handlers
-  config.ts                    Environment validation
-  index.ts                     App entrypoint
-  logger.ts                    Logging
-  services/
-    channel-store.ts           Local persistence
-    digest-service.ts          Claude digest generation
-    telegram-reader.ts         Public channel access via GramJS
-  scripts/
-    generate-session.ts        Helper to create TELEGRAM_SESSION_STRING
-  utils/
-    channel.ts                 Input normalization and URL helpers
+┌──────────────────────────────────────────────────────────────────────┐
+│                    TELEGRAM DIGEST BOT MVP                          │
+│                                                                      │
+│  /add   /list   /remove   /digest   /start                           │
+│                                                                      │
+│  Публичные каналы  ──▶  Web Parser  ──▶  Importance Engine          │
+│   t.me/s/<channel>          │                 │                       │
+│                              │                 ▼                       │
+│                              │        Topic Clusters + Ranking         │
+│                              │                 │                       │
+│                              └────────────▶ Claude Haiku              │
+│                                                │                       │
+│                                                ▼                       │
+│                                   Top-5 тем + ссылки на посты         │
+└──────────────────────────────────────────────────────────────────────┘
 ```
 
-## Environment variables
+---
 
-Copy `.env.example` to `.env` and fill in:
+## Что делает бот
 
-- `BOT_TOKEN` - Telegram bot token from BotFather
-- `TELEGRAM_API_ID` - Telegram API ID from `my.telegram.org`
-- `TELEGRAM_API_HASH` - Telegram API hash from `my.telegram.org`
-- `TELEGRAM_SESSION_STRING` - Telegram user session for reading channel history
-- `ANTHROPIC_API_KEY` - Anthropic API key
-- `ANTHROPIC_MODEL` - defaults to `claude-3-5-haiku-latest`
-- `BOT_OWNER_CHAT_ID` - optional, restricts the bot to one chat
-- `DATA_DIR` - defaults to `/app/data` in Docker
-- `LOG_LEVEL` - defaults to `info`
+- отвечает на `/start`
+- добавляет публичный канал через `/add @channel` или `/add https://t.me/channel`
+- показывает список каналов через `/list`
+- удаляет канал через `/remove`
+- запускает ручной digest через `/digest`
+- читает посты только за последние 24 часа
+- формирует итоговую выжимку через LLM
 
-## Important Telegram note
+---
 
-Telegram Bot API alone cannot reliably read arbitrary public channel history. This MVP uses:
+## Почему этот стек
 
-- a bot token for user-facing commands
-- a Telegram user session for channel reading
+### Telegram
 
-Generate the session string once:
+- `Telegraf` для команд и UX бота
+- парсинг публичных каналов через `https://t.me/s/<channel>` как основной ingest path
+- `GramJS` оставлен как optional fallback, если web-путь недоступен
+
+### LLM
+
+- `Claude Haiku 4.5`
+
+Причина выбора:
+
+- низкая стоимость на один digest
+- хорошая скорость ответа
+- достаточно сильная структурированная суммаризация для MVP
+
+### Хранение
+
+- локальный `JSON`-файл
+
+Это соответствует ТЗ:
+
+- один пользователь
+- без облачной БД
+- без мультиюзерности
+
+---
+
+## Архитектура
+
+### 1. Ingest Layer
+
+Бот читает публичные каналы через Telegram web view:
+
+- `https://t.me/s/<channel>`
+
+На выходе получаем нормализованные посты:
+
+- `channelUsername`
+- `publishedAt`
+- `text`
+- `url`
+
+### 2. Importance Engine
+
+Перед LLM бот не отправляет весь сырой поток постов.
+
+Сначала локально выполняется:
+
+1. очистка и нормализация текста
+2. отбор слабого шума
+3. scoring отдельных постов
+4. кластеризация похожих тем между каналами
+5. ranking тем по важности
+6. diversity-aware отбор shortlist
+
+### 3. LLM Formatting Layer
+
+`Claude Haiku` получает уже shortlist тем, а не весь поток сообщений.
+
+Его задача:
+
+- выбрать финальный top-5
+- сформулировать заголовки и краткие описания
+- вернуть ссылку на исходный пост
+
+---
+
+## Команды
+
+| Команда | Что делает |
+| --- | --- |
+| `/start` | приветствие и список команд |
+| `/add <@channel / link>` | добавить публичный канал |
+| `/list` | показать отслеживаемые каналы |
+| `/remove <@channel / link>` | удалить канал |
+| `/digest` | собрать digest за 24 часа |
+
+---
+
+## Быстрый запуск
+
+### Вариант 1. Основной путь сдачи: Docker Compose
 
 ```bash
-npm install
 cp .env.example .env
-# fill TELEGRAM_API_ID and TELEGRAM_API_HASH first
-npm run telegram:login
-```
-
-The script prints `TELEGRAM_SESSION_STRING`; copy it into `.env`.
-
-## Run with Docker Compose
-
-Primary submission path:
-
-```bash
-cp .env.example .env
-# fill all required variables
+# заполнить переменные окружения
 docker compose up --build
 ```
 
-Persistent tracked channels are stored in `./data/channels.json`.
+Данные хранятся в:
 
-## Run locally without Docker
+- `./data/channels.json`
+
+### Вариант 2. Локальный запуск
 
 ```bash
 npm install
 cp .env.example .env
-# fill variables
+# заполнить переменные окружения
 npm run dev
 ```
 
-## Verification flow
+---
 
-1. Open Telegram and start the bot.
-2. Send `/start`.
-3. Add channels:
+## Переменные окружения
+
+Обязательные:
+
+- `BOT_TOKEN` — токен Telegram-бота от BotFather
+- `ANTHROPIC_API_KEY` — ключ Anthropic
+
+Опциональные:
+
+- `TELEGRAM_API_ID` — Telegram API ID для fallback reader
+- `TELEGRAM_API_HASH` — Telegram API hash для fallback reader
+- `TELEGRAM_SESSION_STRING` — user session для fallback reader
+- `ANTHROPIC_MODEL` — по умолчанию `claude-haiku-4-5-20251001`
+- `BOT_OWNER_CHAT_ID` — ограничение бота одним чатом
+- `DATA_DIR` — директория хранения данных
+- `LOG_LEVEL` — уровень логирования
+
+---
+
+## Структура проекта
+
+```text
+src/
+  bot.ts                       Telegram bot handlers
+  config.ts                    Валидация env
+  index.ts                     Точка входа
+  logger.ts                    Логирование
+  services/
+    channel-store.ts           Хранение списка каналов
+    digest-service.ts          Оркестрация digest + вызов Claude
+    importance-engine.ts       Локальный ranking тем
+    telegram-reader.ts         Парсинг публичных каналов
+  scripts/
+    generate-session.ts        Генерация TELEGRAM_SESSION_STRING
+  utils/
+    channel.ts                 Нормализация ссылок и username
+docs/
+  BUSINESS.md                  Ответы по стоимости и монетизации
+  DEMO_CHECKLIST.md            Чеклист для 2-минутного видео
+```
+
+---
+
+## Как проверить руками
+
+1. Запустить бот
+2. Открыть Telegram
+3. Отправить `/start`
+4. Добавить каналы:
    - `/add @channelname`
    - `/add https://t.me/channelname`
-4. Check `/list`.
-5. Run `/digest`.
-6. Remove one channel with `/remove`.
+5. Проверить `/list`
+6. Выполнить `/digest`
+7. Удалить канал через `/remove`
 
-## Known limitations
+---
 
-- Single-user oriented MVP; no per-user isolation
-- Local JSON persistence instead of SQLite or a database
-- No scheduler yet; digest is manual via `/digest`
-- Digest prompt currently truncates large volumes of source messages instead of doing multi-pass clustering
-- Requires a Telegram user session, which makes first-time setup slightly more involved
-- No automated test suite yet; verification is currently build-time + manual Telegram flow
+## Что уже закрывает ТЗ
 
-## Next iteration improvements
+- 5 обязательных команд
+- мониторинг публичных каналов
+- digest по последним 24 часам
+- локальное хранение списка каналов
+- упаковка через `docker-compose`
+- README с инструкцией запуска
+- отдельный документ по стоимости и монетизации
+- отдельный чеклист для demo-видео
 
-- Move persistence to SQLite with migrations
-- Add scheduled daily digest delivery
-- Add multi-user support and per-user channel lists
-- Add pre-clustering/ranking before LLM summarization
-- Add retries/backoff and richer Telegram API diagnostics
-- Add automated integration tests around command handlers and storage
+---
 
-## Submission docs
+## Известные ограничения
 
-- Business and pricing answers: [docs/BUSINESS.md](docs/BUSINESS.md)
-- Demo recording checklist: [docs/DEMO_CHECKLIST.md](docs/DEMO_CHECKLIST.md)
+- бот ориентирован на одного пользователя
+- нет ежедневного scheduler, digest запускается вручную
+- ranking тем уже выполняется локально, но cross-channel clustering все еще можно усилить
+- нет полноценного historical memory по темам за 3–7 дней
+- нет автоматических интеграционных тестов
+
+---
+
+## Что улучшать следующим этапом
+
+- усилить объединение одной темы между несколькими каналами
+- добавить memory для novelty vs continuation
+- добавить scheduled digest раз в сутки
+- перевести хранение в SQLite
+- добавить многопользовательский режим
+- покрыть bot flow автотестами
+
+---
+
+## Документы
+
+- [Бизнес-оценка и монетизация](./docs/BUSINESS.md)
+- [Чеклист для demo-видео](./docs/DEMO_CHECKLIST.md)

@@ -1,86 +1,92 @@
-# Business Notes
+# Бизнес-заметки
 
-## 1. Estimated monthly cost for 1 user monitoring 30 channels and running `/digest` once per day
+## 1. Оценка ежемесячной стоимости для 1 пользователя
 
-This is a rough MVP estimate, not a production finance model.
+Сценарий:
 
-### Assumptions
+- пользователь мониторит `30` каналов
+- запускает `/digest` `1` раз в день
+- используется `Claude Haiku`
 
-- 30 public channels monitored
-- 1 digest request per day
-- Average 3-8 relevant posts per channel per day, but only a trimmed subset is sent to the LLM
-- Claude Haiku is used for summarization
-- Local or very small VPS deployment
+Это оценка для MVP, а не финальная финансовая модель.
 
-### LLM cost
+### Допущения
 
-Rough working assumption for one digest:
+- в среднем в каждом канале есть `3–8` потенциально полезных постов в день
+- в LLM уходит не весь поток, а только предварительно сжатый shortlist тем
+- бот работает либо локально, либо на небольшом VPS
 
-- Input to LLM: about `40k-80k` tokens after trimming/packing
-- Output from LLM: about `800-1,200` tokens
+### Стоимость LLM
 
-At 30 digests per month, this stays in a low single-digit to low double-digit USD range depending on actual posting volume and the current Anthropic pricing tier. A practical MVP planning estimate is:
+Ориентир на один digest:
 
-- `LLM monthly cost`: about `$3-$12`
+- вход: `40k–80k` токенов после локального отбора и упаковки
+- выход: `800–1,200` токенов
 
-If channels are unusually noisy, this can increase quickly unless we add pre-clustering before the model call.
+При `30` digest-запросах в месяц практический ориентир для MVP:
 
-### Hosting cost
+- `LLM`: примерно `$3–12 / месяц`
 
-For a small always-on bot:
+Главный драйвер стоимости здесь не сам бот, а размер входного контекста для модели.
 
-- Small VPS or container host: about `$4-$10 / month`
+### Хостинг
 
-If run locally on an internal machine, hosting cost can be treated as near-zero incremental cost for the MVP.
+Для always-on MVP:
 
-### Storage and misc
+- небольшой VPS / container host: примерно `$4–10 / месяц`
 
-- Local JSON or SQLite storage: effectively `$0`
-- Telegram API usage: `$0` direct platform fee for this MVP flow
-- Logs / backups / monitoring: `$0-$2` at this stage, depending on setup
+Если бот запускается внутри компании на своей машине, этот пункт может быть почти нулевым.
 
-### Total estimate
+### Прочее
 
-- Lean local/internal setup: about `$3-$12 / month`
-- Small hosted setup: about `$7-$22 / month`
+- локальный JSON / SQLite: `$0`
+- прямой Telegram platform fee для такого сценария: `$0`
+- базовые логи / мониторинг / бэкапы: `$0–2`
 
-The main cost driver is not bot hosting, but LLM input size.
+### Итого
 
-## 2. Three monetization hypotheses
+- локальный / внутренний запуск: примерно `$3–12 / месяц`
+- небольшой hosted вариант: примерно `$7–22 / месяц`
 
-### Hypothesis A: Competitive intelligence for founders and PMs
+---
 
-- Audience: startup founders, solo operators, product managers
-- Need: monitor niche channels, competitor launches, ecosystem chatter, and customer pain points
-- Model: subscription, for example `$19-$79 / month` depending on number of tracked channels and digest frequency
+## 2. Три гипотезы монетизации
 
-### Hypothesis B: Agency and analyst monitoring tool
+### Гипотеза A. Competitive intelligence для founders и PM
 
-- Audience: boutique agencies, market researchers, investment analysts
-- Need: track many Telegram-native ecosystems without manual scanning
-- Model: team plan or analyst seat pricing, for example `$99-$299 / month`
+- Аудитория: founders, solo operators, product managers
+- Боль: вручную читать Telegram-каналы конкурентов, рынка и экосистемы
+- Модель: подписка, например `$19–79 / месяц`
 
-### Hypothesis C: Vertical intelligence product
+### Гипотеза B. Инструмент для агентств и аналитиков
 
-- Audience: users in specific Telegram-heavy niches such as crypto, OSINT, regional media, or gaming communities
-- Need: niche-aware curated digests with higher signal than a generic summarizer
-- Model: premium vertical package with templates, saved watches, and historical archive
+- Аудитория: boutique agencies, market researchers, investment analysts
+- Боль: быстро собирать ежедневную выжимку по Telegram-native нишам
+- Модель: team / analyst seats, например `$99–299 / месяц`
 
-## 3. First acquisition channel if this were a commercial product
+### Гипотеза C. Вертикальный intelligence-продукт
 
-I would start with direct distribution inside Telegram itself.
+- Аудитория: crypto, OSINT, региональные медиа, gaming-комьюнити
+- Боль: нужен не общий summarizer, а нишевой сигнал с более высоким качеством
+- Модель: premium vertical package с шаблонами, watchlists и историческим архивом
 
-Why:
+---
 
-- The target users already live there
-- Pain is immediate and easy to demonstrate
-- A short video or before/after example is enough to show value
-- Early adopters can be reached inside founder, analyst, crypto, research, and media-monitoring communities
+## 3. Первый канал привлечения
 
-The first tactic would be:
+Если запускать продукт коммерчески, первым каналом привлечения я бы выбрал сам Telegram.
 
-- a short demo video
-- a landing page with a waitlist
-- direct outreach into a few relevant Telegram communities and founder/operator chats
+### Почему
 
-This is the fastest path to validate whether users care about “save me from reading 50 channels manually” strongly enough to pay.
+- целевая аудитория уже находится там
+- боль легко показать в одном коротком demo
+- ценность понятна сразу: “не читать 50 каналов руками”
+- ранних пользователей можно искать прямо в founder, analyst, crypto и research-комьюнити
+
+### Первый практический набор действий
+
+- короткое demo-видео
+- простой landing page с waitlist
+- ручной outreach в релевантные Telegram-сообщества и рабочие чаты
+
+Это самый быстрый способ проверить, готовы ли пользователи платить за экономию времени на Telegram-мониторинге.

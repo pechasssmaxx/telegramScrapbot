@@ -16,11 +16,22 @@ const HELP_TEXT = [
   "/digest - fetch the last 24h and build a digest"
 ].join("\n");
 
+const COMMAND_COOLDOWN_MS = 1200;
+const BOT_COMMANDS = [
+  { command: "start", description: "Start bot and show help" },
+  { command: "add", description: "Add a public Telegram channel" },
+  { command: "list", description: "Show tracked channels" },
+  { command: "remove", description: "Remove a tracked channel" },
+  { command: "digest", description: "Build a 24h digest now" }
+] as const;
+
 export function createBot(): Telegraf {
   const bot = new Telegraf(appConfig.BOT_TOKEN);
   const store = new ChannelStore(appConfig.DATA_DIR);
   const reader = new TelegramReader();
   const digestService = new DigestService();
+  const commandUsage = new Map<number, number>();
+  const digestLocks = new Set<number>();
 
   bot.use(async (ctx, next) => {
     if (
@@ -30,6 +41,19 @@ export function createBot(): Telegraf {
     ) {
       await ctx.reply("This MVP bot is configured for a single owner chat only.");
       return;
+    }
+
+    const chatId = ctx.chat?.id;
+    if (chatId && isCommandUpdate(ctx)) {
+      const now = Date.now();
+      const lastUsedAt = commandUsage.get(chatId) ?? 0;
+
+      if (now - lastUsedAt < COMMAND_COOLDOWN_MS) {
+        await ctx.reply("Too many commands in a row. Wait 1-2 seconds and try again.");
+        return;
+      }
+
+      commandUsage.set(chatId, now);
     }
 
     await next();
@@ -106,6 +130,17 @@ export function createBot(): Telegraf {
   });
 
   bot.command("digest", async (ctx) => {
+    const chatId = ctx.chat?.id;
+    if (!chatId) {
+      await ctx.reply("Digest can only run from a chat.");
+      return;
+    }
+
+    if (digestLocks.has(chatId)) {
+      await ctx.reply("Digest is already running for this chat. Wait for it to finish.");
+      return;
+    }
+
     const channels = await store.list();
 
     if (channels.length === 0) {
@@ -113,31 +148,38 @@ export function createBot(): Telegraf {
       return;
     }
 
-    await ctx.reply(`Building digest for ${channels.length} tracked channel(s). This can take a moment...`);
-
-    const since = new Date(Date.now() - 24 * 60 * 60 * 1000);
-    const collected = [];
-    const issues: string[] = [];
-
-    for (const channel of channels) {
-      try {
-        const posts = await reader.fetchRecentPosts(channel, since);
-        collected.push(...posts);
-      } catch (error) {
-        issues.push(`@${channel.username}: ${mapUserError(error)}`);
-      }
-    }
-
-      if (collected.length === 0) {
-      await replyLong(
-        ctx,
-        "I could not find any recent public posts in the last 24 hours.\n" +
-          (issues.length > 0 ? `\nIssues:\n${issues.join("\n")}` : "")
-      );
-      return;
-    }
+    digestLocks.add(chatId);
+    const progress = startProgress(ctx, [
+      "Collecting recent posts from tracked channels...",
+      "Preparing digest input for Claude Haiku...",
+      "Summarizing the top themes..."
+    ]);
 
     try {
+      await ctx.reply(`Building digest for ${channels.length} tracked channel(s). This can take a moment...`);
+
+      const since = new Date(Date.now() - 24 * 60 * 60 * 1000);
+      const collected = [];
+      const issues: string[] = [];
+
+      for (const channel of channels) {
+        try {
+          const posts = await reader.fetchRecentPosts(channel, since);
+          collected.push(...posts);
+        } catch (error) {
+          issues.push(`@${channel.username}: ${mapUserError(error)}`);
+        }
+      }
+
+      if (collected.length === 0) {
+        await replyLong(
+          ctx,
+          "I could not find any recent public posts in the last 24 hours.\n" +
+            (issues.length > 0 ? `\nIssues:\n${issues.join("\n")}` : "")
+        );
+        return;
+      }
+
       const topics = await digestService.buildDigest(collected);
 
       if (topics.length === 0) {
@@ -145,18 +187,20 @@ export function createBot(): Telegraf {
         return;
       }
 
-      const chunks = topics.map(
-        (topic, index) =>
-          `${index + 1}. ${topic.title}\n${topic.summary}\nSource: ${topic.sourceUrl}`
-      );
+      const chunks = topics.map((topic, index) => {
+        return `${index + 1}. ${topic.title}\n${topic.summary}\nИсточник: ${topic.sourceUrl}`;
+      });
 
-      await replyLong(ctx, `Top themes from the last 24 hours:\n\n${chunks.join("\n\n")}`);
+      await replyLong(ctx, `Главные темы за последние 24 часа:\n\n${chunks.join("\n\n")}`);
 
       if (issues.length > 0) {
         await replyLong(ctx, `Some channels had issues:\n${issues.join("\n")}`);
       }
     } catch (error) {
       await ctx.reply(mapUserError(error));
+    } finally {
+      progress.stop();
+      digestLocks.delete(chatId);
     }
   });
 
@@ -165,6 +209,10 @@ export function createBot(): Telegraf {
   });
 
   return bot;
+}
+
+export async function registerBotCommands(bot: Telegraf): Promise<void> {
+  await bot.telegram.setMyCommands(BOT_COMMANDS);
 }
 
 function splitCommand(text: string): [string, string | undefined] {
@@ -182,6 +230,45 @@ function mapUserError(error: unknown): string {
   }
 
   return "Unexpected error. Check logs for details.";
+}
+
+function isCommandUpdate(ctx: Context): boolean {
+  const message = "message" in ctx.update ? ctx.update.message : undefined;
+  return !!message && "text" in message && typeof message.text === "string" && message.text.startsWith("/");
+}
+
+function startProgress(ctx: Context, messages: string[]) {
+  let index = 0;
+  let active = true;
+
+  const tick = async () => {
+    if (!active) {
+      return;
+    }
+
+    try {
+      await ctx.sendChatAction("typing");
+
+      if (index < messages.length) {
+        await ctx.reply(messages[index]);
+        index += 1;
+      }
+    } catch (error) {
+      logger.warn({ error }, "Failed to send progress update");
+    }
+  };
+
+  void tick();
+  const interval = setInterval(() => {
+    void tick();
+  }, 7000);
+
+  return {
+    stop() {
+      active = false;
+      clearInterval(interval);
+    }
+  };
 }
 
 async function replyLong(

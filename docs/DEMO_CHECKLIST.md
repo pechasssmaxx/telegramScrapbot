@@ -1,39 +1,38 @@
-# Demo Checklist
+# Чеклист для demo-видео
 
-Use this for the required 2-minute walkthrough video.
+Этот файл нужен для обязательного 2-минутного видео из ТЗ.
 
-## Before recording
+## Перед записью
 
-- `.env` is filled
-- bot is running
-- `TELEGRAM_SESSION_STRING` works
-- at least 2-3 public channels with recent posts are ready for demo
-- `data/` is clean or in a known state
+- заполнен `.env`
+- бот запущен
+- есть 2–3 публичных канала с постами за последние 24 часа
+- список каналов в `data/channels.json` в понятном состоянии
 
-## Recording flow
+## Сценарий записи
 
-1. Show the running bot or terminal with the service started.
-2. Open Telegram and send `/start`.
-3. Add one channel with `@channelname`.
-4. Add one channel with `https://t.me/channelname`.
-5. Run `/list` and show both tracked channels.
-6. Run `/digest`.
-7. Wait for digest output and scroll through:
-   - top 5 themes
-   - short summaries
-   - source links
-8. Run `/remove` for one tracked channel.
-9. Run `/list` again to show removal worked.
+1. Показать, что бот запущен
+2. Открыть Telegram и отправить `/start`
+3. Добавить один канал через `@channelname`
+4. Добавить один канал через `https://t.me/channelname`
+5. Показать `/list`
+6. Запустить `/digest`
+7. Дождаться ответа и показать:
+   - 5 тем
+   - краткие описания
+   - ссылки на оригинальные посты
+8. Выполнить `/remove`
+9. Снова показать `/list`
 
-## Nice-to-show edge cases
+## Полезно показать дополнительно
 
-- Try adding a non-existent channel
-- Try a private/inaccessible channel
-- Show `/digest` on an empty list in a clean state
+- ошибку на несуществующем канале
+- ошибку на приватном канале
+- поведение `/digest`, если список каналов пустой
 
-## What evaluators should clearly see
+## Что должно быть видно проверяющему
 
-- All 5 required commands work
-- The digest is based on real Telegram posts
-- The result includes source links
-- You tested the product manually, not just wrote code
+- все 5 обязательных команд реально работают
+- бот читает Telegram, а не генерирует фиктивные данные
+- digest содержит ссылки на исходные посты
+- продукт проверен руками, а не только написан кодом

@@ -1,8 +1,9 @@
-import { createBot } from "./bot.js";
+import { createBot, registerBotCommands } from "./bot.js";
 import { logger } from "./logger.js";
 
 async function main(): Promise<void> {
   const bot = createBot();
+  await registerBotCommands(bot);
   await bot.launch();
   logger.info("Bot started");
 
