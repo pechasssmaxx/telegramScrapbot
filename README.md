@@ -37,7 +37,7 @@
 - хорошая скорость ответа
 - нормальная структурированная суммаризация
 
-Практический ориентир на 1 digest-запрос при компактном shortlist — около `0.1 цента`.
+Практический ориентир на 1 digest-запрос при компактном shortlist — около `0.01 цента`.
 
 ## Архитектура
 
@@ -125,15 +125,6 @@ npm run dev
 - `BOT_TOKEN`
 - `ANTHROPIC_API_KEY`
 
-Опциональные:
-
-- `TELEGRAM_API_ID`
-- `TELEGRAM_API_HASH`
-- `TELEGRAM_SESSION_STRING`
-- `ANTHROPIC_MODEL`
-- `BOT_OWNER_CHAT_ID`
-- `DATA_DIR`
-- `LOG_LEVEL`
 
 ## Структура проекта
 
