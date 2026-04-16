@@ -45,13 +45,13 @@ Telegram platform fee: `0 USD`
 
 Аудитория: founders, product managers, solo operators
 Боль: вручную читать десятки Telegram-каналов конкурентов и рынка
- Модель: подписка `19-50 USD / месяц`
+ Модель: подписка 
 
 Гипотеза 2. Мониторинг для аналитиков и агентств
 
 Аудитория: research-команды, аналитики, boutique agencies
  Боль: быстро получать ежедневную выжимку по Telegram-native нишам
-Модель: team plan или analyst seats `20-30 USD / месяц`
+Модель: team plan или analyst seats
 
 Гипотеза 3. Вертикальный intelligence-продукт
 
